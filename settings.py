@@ -1,12 +1,12 @@
 # API URL.
 import logging
 
-BASE_URL = "https://www.bitmex.com/api/v1/"
-# BASE_URL = "https://www.bitmex.com/api/v1/" # Once you're ready, uncomment this.
+# BASE_URL = "https://www.bitmex.com/api/v1/"
+BASE_URL = "https://testnet.bitmex.com/api/v1/" # Once you're ready, uncomment this.
 
 # The BitMEX API requires permanent API keys. Go to https://testnet.bitmex.com/api/apiKeys to fill these out.
-API_KEY = "key"
-API_SECRET = "secret"
+API_KEY = "omwY-ILCkDptTpywi5DQb3-Q"
+API_SECRET = "MuJ1iulAvW_PHZO-WNhy9nlH4Gg6ZQF8_JAbB3OrNlqPPCsQ"
 
 ########################################################################################################################
 # Target

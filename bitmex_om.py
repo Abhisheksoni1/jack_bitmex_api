@@ -130,3 +130,7 @@ class ExchangeInterface:
             return self.bitmex.sell(kwargs['quantity'], kwargs['price'])
         elif kwargs['type'] == 'buy':
             return self.bitmex.buy(kwargs['quantity'], kwargs['price'])
+
+ex = ExchangeInterface()
+print(ex.get_instrument())
+print(ex.is_open())
