@@ -18,7 +18,7 @@ class BitMEX(object):
     """BitMEX API Connector."""
 
     def __init__(self, base_url=None, symbol=None, apiKey=None, apiSecret=None,
-                 orderIDPrefix='bt_bitmex_', shouldWSAuth=True, postOnly=False):
+                 orderIDPrefix='jack_bitmex_', shouldWSAuth=True, postOnly=False):
         """Init connector."""
         self.logger = logging.getLogger('root')
         self.base_url = base_url
@@ -127,36 +127,43 @@ class BitMEX(object):
         return self.position(self.symbol)['homeNotional']
 
     @authentication_required
-    def buy(self, quantity, price):
+    def buy(self, **kwargs):
         """Place a buy order.
 
         Returns order object. ID: orderID
         """
-        return self.place_order(quantity, price)
+        return self.place_order(**kwargs)
 
     @authentication_required
-    def sell(self, quantity, price):
+    def sell(self, **kwargs):
         """Place a sell order.
 
         Returns order object. ID: orderID
         """
-        return self.place_order(-quantity, price)
+        kwargs['quantity'] = - kwargs['quantity']
+        return self.place_order(**kwargs)
 
     @authentication_required
-    def place_order(self, quantity, price):
-        """Place an order."""
-        if price < 0:
-            raise Exception("Price must be positive.")
+    def place_order(self, **kwargs):
+        postdict = {}
+        if kwargs['orderType'] != "Market":
+            if kwargs['price'] < 0:
+                raise Exception("Price must be positive.")
+            else:
+                postdict = {'price': kwargs['price']}
+                if kwargs['orderType'] in ['StopLimit', 'LimitIfTouched']:
+                    postdict.update({'stopPx': kwargs['stopPx']})
 
         endpoint = "order"
         # Generate a unique clOrdID with our prefix so we can identify it.
         clOrdID = self.orderIDPrefix + base64.b64encode(uuid.uuid4().bytes).decode('utf8').rstrip('=\n')
-        postdict = {
-            'symbol': self.symbol,
-            'orderQty': quantity,
-            'price': price,
-            'clOrdID': clOrdID
-        }
+        postdict.update({
+            'symbol': kwargs['symbol'],
+            'orderQty': kwargs['quantity'],
+            'clOrdID': clOrdID,
+            'orderType': kwargs['orderType']
+        })
+        """Place an order."""
         return self._curl_bitmex(path=endpoint, postdict=postdict, verb="POST")
 
     @authentication_required
