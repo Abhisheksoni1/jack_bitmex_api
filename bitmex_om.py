@@ -240,6 +240,7 @@ class ExchangeInterface:
     #
 
     def cancel_all_orders(self):
+        logger.info("Cancelling all your orders")
         if self.dry_run:
             return
         # In certain cases, a WS update might not make it through before we call this.
@@ -256,31 +257,6 @@ class ExchangeInterface:
             return {'marginBalance': float(settings.DRY_BTC), 'availableFunds': float(settings.DRY_BTC)}
         return self.bitmex.funds()
 
-    #
-    # def get_highest_buy(self):
-    #     buys = [o for o in self.get_orders() if o['side'] == 'Buy']
-    #     if not len(buys):
-    #         return {'price': -2**32}
-    #     highest_buy = max(buys or [], key=lambda o: o['price'])
-    #     return highest_buy if highest_buy else {'price': -2**32}
-    #
-    # def get_lowest_sell(self):
-    #     sells = [o for o in self.get_orders() if o['side'] == 'Sell']
-    #     if not len(sells):
-    #         return {'price': 2**32}
-    #     lowest_sell = min(sells or [], key=lambda o: o['price'])
-    #     return lowest_sell if lowest_sell else {'price': 2**32}  # ought to be enough for anyone
-    #
-    # def get_position(self, symbol=None):
-    #     if symbol is None:
-    #         symbol = self.symbol
-    #     return self.bitmex.position(symbol)
-    #
-    # def get_ticker(self, symbol=None):
-    #     if symbol is None:
-    #         symbol = self.symbol
-    #     return self.bitmex.ticker_data(symbol)
-
     def place_order(self, **kwargs):
         if kwargs['side'] == 'sell':
             return self.bitmex.sell(**kwargs)
@@ -289,17 +265,6 @@ class ExchangeInterface:
 
 
 o = Order('bitmex', 'XBT', 'USD', 'Limit', 'buy', 100, 15200)
+
 ex = ExchangeInterface()
-# acknw = (ex.create(o))
-# sleep(1)
 print(ex.getBalances())
-# print(ex.isActive(acknw))
-# print(ex.get_instrument())
-# print(ex.is_open())
-#{'orderID': 'e554bd97-3d2d-441a-61e8-7d5bbc3016e5', 'clOrdID': 'mm_bitmex_g6KFGQxPRwOvlttZweRqcg', 'clOrdLinkID': '',
-#  'account': 6537, 'symbol': 'XBTUSD', 'side': 'Buy', 'simpleOrderQty': None, 'orderQty': 100, 'price': 15373,
-# 'displayQty': None, 'stopPx': None, 'pegOffsetValue': None, 'pegPriceType': '', 'currency': 'USD', 'settlCurrency': 'XBt',
-# 'ordType': 'Market', 'timeInForce': 'ImmediateOrCancel', 'execInst': '', 'contingencyType': '', 'exDestination': 'XBME',
-# 'ordStatus': 'Filled', 'triggered': '', 'workingIndicator': False, 'ordRejReason': '', 'simpleLeavesQty': 0, 'leavesQty': 0,
-# 'simpleCumQty': 0.006505, 'cumQty': 100, 'avgPx': 15373, 'multiLegReportingType': 'SingleSecurity', 'text': 'Submitted via API.',
-# 'transactTime': '2017-12-27T10:31:22.922Z', 'timestamp': '2017-12-27T10:31:22.922Z'}
