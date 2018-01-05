@@ -188,8 +188,9 @@ class ExchangeInterface:
         self.balances, self.available = {}, {}
         n = 0
         n += 1
-        ackMsg = self.getBalances()
-        if isinstance(ackMsg, list):
+        ackMsg = self.get_balances()
+        print(ackMsg)
+        if isinstance(ackMsg, dict):
             self.balances[str(ackMsg['currency'].upper())] = float(ackMsg['marginBalance']/(10**8))
             self.available[str(ackMsg['currency'].upper())] = float(ackMsg['availableMargin']/(10**8))
         else:
@@ -199,7 +200,7 @@ class ExchangeInterface:
 
             else:
                 return intAckMsg
-        return self.balances, self.available
+        return [self.balances, self.available]
 
     def handleUnknownMsg(self, ackMsg):
         if type(ackMsg) is dict and 'message' in ackMsg:
@@ -246,7 +247,7 @@ class ExchangeInterface:
 
         sleep(API_REST_INTERVAL)
 
-    def getBalances(self):
+    def get_balances(self):
         return self.bitmex.balances()
 
     def place_order(self,side, symbol, quantity, ordertpye, price=None, stopPx=None):

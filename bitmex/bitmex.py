@@ -42,7 +42,7 @@ class APIKeyAuth(AuthBase):
 
 
 def generate_nonce():
-    return int(round(time.time() * 1000))
+    return int(round(time.time() * 10000))
 
 
 def generate_signature(secret, verb, url, nonce, data):
@@ -261,8 +261,9 @@ class BitMEX(object):
             'currency': 'XBt'
         }
         data = self._curl_bitmex(path=endpoint, postdict=postdict, verb="GET", private=True)
-        if isinstance(data, list):
-            return list(map(lambda i: {'currency': i['currency'], 'marginBalance': i['marginBalance']}, data))
+        # print(data)
+        if isinstance(data, dict):
+            return {'currency': data['currency'], 'marginBalance': data['marginBalance'], 'availableMargin': data['availableMargin']}
 
     def Xbt_to_XBT(self, xbt):
         return xbt/CONSTANT
@@ -434,8 +435,7 @@ class BitMEX(object):
             max_retries = 0 if verb in ['POST', 'PUT'] else 3
 
         # Auth: API Key/Secret
-        if private:
-            auth = APIKeyAuthWithExpires(self.apiKey, self.apiSecret)
+
 
         def exit_or_throw(e):
             if rethrow_errors:
@@ -454,6 +454,7 @@ class BitMEX(object):
         try:
             self.logger.info("sending req to %s: %s" % (url, json.dumps(postdict or query or '')))
             if private:
+                auth = APIKeyAuthWithExpires(self.apiKey, self.apiSecret)
                 req = requests.Request(verb, url, json=postdict, auth=auth, params=query)
             else:
                 req = requests.Request(verb, url, json=postdict, params=query)
