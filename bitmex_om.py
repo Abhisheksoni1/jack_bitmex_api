@@ -15,8 +15,8 @@ Error_code:
 '''
 SYMBOL = 'XBTUSD'
 BASE_URL = 'https://www.bitmex.com/api/v1/'
-API_KEY = ''
-API_SECRET = ''
+API_KEY = "vjKtqv4OPzcFSFO02dx65CEt"
+API_SECRET = "R10sX2fGE-Wk84797MIcRYVg0v7yX6ZvK4yT-KwRA1C8e_XM"
 API_REST_INTERVAL = 1
 
 
@@ -189,7 +189,7 @@ class ExchangeInterface:
         n = 0
         n += 1
         ackMsg = self.getBalances()
-        if isinstance(ackMsg, dict):
+        if isinstance(ackMsg, list):
             self.balances[str(ackMsg['currency'].upper())] = float(ackMsg['marginBalance']/(10**8))
             self.available[str(ackMsg['currency'].upper())] = float(ackMsg['availableMargin']/(10**8))
         else:

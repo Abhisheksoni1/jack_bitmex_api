@@ -114,14 +114,8 @@ class BitMEX(object):
         self.base_url = base_url
         self.symbol = symbol
         self.postOnly = postOnly
-        if (apiKey is None):
-            raise Exception("Please set an API key and Secret to get started. See " +
-                            "https://github.com/BitMEX/sample-market-maker/#getting-started for more information."
-                            )
         self.apiKey = apiKey
         self.apiSecret = apiSecret
-        if len(orderIDPrefix) > 13:
-            raise ValueError("settings.ORDERID_PREFIX must be at most 13 characters long!")
         self.orderIDPrefix = orderIDPrefix
         self.retries = 0  # initialize counter
 
@@ -264,9 +258,9 @@ class BitMEX(object):
         """
         endpoint = 'user/margin'
         postdict ={
-            'currency': 'all'
+            'currency': 'XBt'
         }
-        data = self._curl_bitmex(path=endpoint, postdict=postdict, verb="GET")
+        data = self._curl_bitmex(path=endpoint, postdict=postdict, verb="GET", private=True)
         if isinstance(data, list):
             return list(map(lambda i: {'currency': i['currency'], 'marginBalance': i['marginBalance']}, data))
 
@@ -279,7 +273,7 @@ class BitMEX(object):
         return a list of positions"""
         endpoint = 'position'
 
-        return self._curl_bitmex(path=endpoint, verb="GET")
+        return self._curl_bitmex(path=endpoint, verb="GET", private=True)
 
     @authentication_required
     def close_position(self, symbol, price=None):
@@ -289,7 +283,7 @@ class BitMEX(object):
         if price:
             postdict.update({'price': price})
 
-        return self._curl_bitmex(path=endpoint, postdict=postdict, verb="POST")
+        return self._curl_bitmex(path=endpoint, postdict=postdict, verb="POST", private=True)
 
     @authentication_required
     def isolate_margin(self, symbol, leverage, rethrow_errors=False):
@@ -299,7 +293,7 @@ class BitMEX(object):
             'symbol': symbol,
             'leverage': leverage
         }
-        return self._curl_bitmex(path=path, postdict=postdict, verb="POST", rethrow_errors=rethrow_errors)
+        return self._curl_bitmex(path=path, postdict=postdict, verb="POST", rethrow_errors=rethrow_errors, private=True)
 
     @authentication_required
     def history(self, symbol=None):
@@ -312,8 +306,8 @@ class BitMEX(object):
         endpoint = 'execution/tradeHistory'
         if symbol:
             postdict = {'symbol': symbol}
-            return self._curl_bitmex(path=endpoint,postdict=postdict, verb="GET")
-        return self._curl_bitmex(path=endpoint, verb="GET")
+            return self._curl_bitmex(path=endpoint,postdict=postdict, verb="GET", private=True)
+        return self._curl_bitmex(path=endpoint, verb="GET", private=True)
 
 
     @authentication_required
@@ -367,13 +361,13 @@ class BitMEX(object):
             'orderType': ordertpye
         })
         """Place an order."""
-        return self._curl_bitmex(path=endpoint, postdict=postdict, verb="POST")
+        return self._curl_bitmex(path=endpoint, postdict=postdict, verb="POST", private=True)
 
     @authentication_required
     def amend_bulk_orders(self, orders):
         """Amend multiple orders."""
         # Note rethrow; if this fails, we want to catch it and re-tick
-        return self._curl_bitmex(path='order/bulk', postdict={'orders': orders}, verb='PUT', rethrow_errors=True)
+        return self._curl_bitmex(path='order/bulk', postdict={'orders': orders}, verb='PUT', rethrow_errors=True, private=True)
 
     @authentication_required
     def create_bulk_orders(self, orders):
@@ -383,7 +377,7 @@ class BitMEX(object):
             order['symbol'] = self.symbol
             if self.postOnly:
                 order['execInst'] = 'ParticipateDoNotInitiate'
-        return self._curl_bitmex(path='order/bulk', postdict={'orders': orders}, verb='POST')
+        return self._curl_bitmex(path='order/bulk', postdict={'orders': orders}, verb='POST', private=True)
 
 
     @authentication_required
@@ -396,7 +390,8 @@ class BitMEX(object):
                 'filter': json.dumps({'ordStatus.isTerminated': False, 'symbol': self.symbol}),
                 'count': 500
             },
-            verb="GET"
+            verb="GET",
+            private=True
         )
         # Only return orders that start with our clOrdID prefix.
         return [o for o in orders if str(o['clOrdID']).startswith(self.orderIDPrefix)]
@@ -408,7 +403,7 @@ class BitMEX(object):
         postdict = {
             'orderID': orderID,
         }
-        return self._curl_bitmex(path=path, postdict=postdict, verb="DELETE")
+        return self._curl_bitmex(path=path, postdict=postdict, verb="DELETE", private=True)
 
     @authentication_required
     def withdraw(self, amount, fee, address):
@@ -419,10 +414,10 @@ class BitMEX(object):
             'currency': 'XBt',
             'address': address
         }
-        return self._curl_bitmex(path=path, postdict=postdict, verb="POST", max_retries=0)
+        return self._curl_bitmex(path=path, postdict=postdict, verb="POST", max_retries=0, private=True)
 
     def _curl_bitmex(self, path, query=None, postdict=None, timeout=7, verb=None, rethrow_errors=False,
-                     max_retries=None):
+                     max_retries=None, private=None):
         """Send a request to BitMEX Servers."""
         # Handle URL
         url = self.base_url + path
@@ -439,7 +434,8 @@ class BitMEX(object):
             max_retries = 0 if verb in ['POST', 'PUT'] else 3
 
         # Auth: API Key/Secret
-        auth = APIKeyAuthWithExpires(self.apiKey, self.apiSecret)
+        if private:
+            auth = APIKeyAuthWithExpires(self.apiKey, self.apiSecret)
 
         def exit_or_throw(e):
             if rethrow_errors:
@@ -451,13 +447,16 @@ class BitMEX(object):
             self.retries += 1
             if self.retries > max_retries:
                 raise Exception("Max retries on %s (%s) hit, raising." % (path, json.dumps(postdict or '')))
-            return self._curl_bitmex(path, query, postdict, timeout, verb, rethrow_errors, max_retries)
+            return self._curl_bitmex(path, query, postdict, timeout, verb, rethrow_errors, max_retries, private)
 
         # Make the request
         response = None
         try:
             self.logger.info("sending req to %s: %s" % (url, json.dumps(postdict or query or '')))
-            req = requests.Request(verb, url, json=postdict, auth=auth, params=query)
+            if private:
+                req = requests.Request(verb, url, json=postdict, auth=auth, params=query)
+            else:
+                req = requests.Request(verb, url, json=postdict, params=query)
             prepped = self.session.prepare_request(req)
             response = self.session.send(prepped, timeout=timeout)
             # Make non-200s throw
@@ -498,7 +497,7 @@ class BitMEX(object):
 
                 # We're ratelimited, and we may be waiting for a long time. Cancel orders.
                 self.logger.warning("Canceling all known orders in the meantime.")
-                self.cancel([o['orderID'] for o in self.open_orders()])
+                self.cancel([o['orderID'] for o in self.active_orders()])
 
                 self.logger.error("Your ratelimit will reset at %s. Sleeping for %d seconds." % (reset_str, to_sleep))
                 time.sleep(to_sleep)
