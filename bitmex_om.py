@@ -4,12 +4,8 @@ import datetime
 
 from future.types.newstr import unicode
 
-import settings
 from bitmex import bitmex
 from time import sleep
-from bitmex.utils import log, errors
-
-logger = log.setup_custom_logger('root')
 
 '''
 Error_code:
@@ -17,6 +13,11 @@ Error_code:
 1: 'Nonce is too small.'
 999: Others
 '''
+SYMBOL = 'XBTUSD'
+BASE_URL = 'https://www.bitmex.com/api/v1/'
+API_KEY = ''
+API_SECRET = ''
+API_REST_INTERVAL = 1
 
 
 def nowStr(isDate=False):
@@ -58,10 +59,9 @@ class ExchangeInterface:
         if len(sys.argv) > 1:
             self.symbol = sys.argv[1]
         else:
-            self.symbol = settings.SYMBOL
-        self.bitmex = bitmex.BitMEX(base_url=settings.BASE_URL, symbol=self.symbol,
-                                    apiKey=settings.API_KEY, apiSecret=settings.API_SECRET,
-                                    orderIDPrefix=settings.ORDERID_PREFIX, postOnly=settings.POST_ONLY)
+            self.symbol = SYMBOL
+        self.bitmex = bitmex.BitMEX(base_url=BASE_URL, symbol=self.symbol,
+                                    apiKey=API_KEY, apiSecret=API_SECRET)
         self.cxlNb = 0
         self.retryNum = 5
 
@@ -102,7 +102,6 @@ class ExchangeInterface:
             return False
 
     def cancelAllOrders(self):
-        logger.info('Cancelling all active orders')
         self.cancel_all_orders()
         ackMsg = self.active_orders()
         if len(ackMsg) == 0:
@@ -154,8 +153,7 @@ class ExchangeInterface:
             return odids
         else:
             intAckMsg = self.handleUnknownMsg(ackMsg)
-            logger.error('Unexpected ackMsg::getActiveOrders %s %s' % ("Bitmex", intAckMsg))
-            return None
+            return intAckMsg
 
     def getInitActiveOrders(self):
         ackMsg = self.active_orders()
@@ -183,25 +181,24 @@ class ExchangeInterface:
                 return tmpActiveOrderList
         else:
             intAckMsg = self.handleUnknownMsg(ackMsg)
-            logger.error('Unexpected ackMsg::getInitActiveOrders %s %s' % (self.exchCode, intAckMsg))
-            return None
+            return intAckMsg
 
     def getBalances(self):
         ackMsg = 'INT_MAX_SENT'
         self.balances, self.available = {}, {}
         n = 0
         n += 1
-        ackMsg = self.get_margin()
+        ackMsg = self.getBalances()
         if isinstance(ackMsg, dict):
             self.balances[str(ackMsg['currency'].upper())] = float(ackMsg['marginBalance']/(10**8))
             self.available[str(ackMsg['currency'].upper())] = float(ackMsg['availableMargin']/(10**8))
         else:
             intAckMsg = self.handleUnknownMsg(ackMsg)
             if intAckMsg in ['INT_ERR_0','INT_ERR_1']:
-                logger.error('getBalances %s %s' % (self.exchCode, intAckMsg))
+                return intAckMsg
 
             else:
-                logger.error('Unexpected ackMsg::getBalances %s %s' % (self.exchCode, intAckMsg))
+                return intAckMsg
         return self.balances, self.available
 
     def handleUnknownMsg(self, ackMsg):
@@ -226,42 +223,37 @@ class ExchangeInterface:
             return 'Unexpected ackMsg=%s type=%s waiting to handle it in handleUnknownMsg()' % (ackMsg, type(ackMsg))
 
     def cancel_order(self, order_id):
-        logger.info("Cancelling orders for id {} ".format(order_id))
-        try:
+         try:
             return self.bitmex.cancel(order_id)
             # sleep(settings.API_REST_INTERVAL)
-        except ValueError as e:
-            logger.info(e)
+         except ValueError as e:
             return e
             # sleep(settings.API_ERROR_INTERVAL)
 
     def active_orders(self):
-        return self.bitmex.http_open_orders()
+        return self.bitmex.active_orders()
     #
 
     def cancel_all_orders(self):
-        logger.info("Cancelling all your orders")
         if self.dry_run:
             return
         # In certain cases, a WS update might not make it through before we call this.
         # For that reason, we grab via HTTP to ensure we grab them all.
-        orders = self.bitmex.http_open_orders()
+        orders = self.bitmex.active_orders()
 
         if len(orders):
             self.bitmex.cancel([order['orderID'] for order in orders])
 
-        sleep(settings.API_REST_INTERVAL)
+        sleep(API_REST_INTERVAL)
 
-    def get_margin(self):
-        if self.dry_run:
-            return {'marginBalance': float(settings.DRY_BTC), 'availableFunds': float(settings.DRY_BTC)}
-        return self.bitmex.funds()
+    def getBalances(self):
+        return self.bitmex.balances()
 
-    def place_order(self, **kwargs):
-        if kwargs['side'] == 'sell':
-            return self.bitmex.sell(**kwargs)
-        elif kwargs['side'] == 'buy':
-            return self.bitmex.buy(**kwargs)
+    def place_order(self,side, symbol, quantity, ordertpye, price=None, stopPx=None):
+        if side == 'sell':
+            return self.bitmex.sell(symbol, quantity, ordertpye, price=None, stopPx=None)
+        elif side == 'buy':
+            return self.bitmex.buy(symbol, quantity, ordertpye, price=None, stopPx=None)
 
 
 o = Order('bitmex', 'XBT', 'USD', 'Limit', 'buy', 100, 15200)
