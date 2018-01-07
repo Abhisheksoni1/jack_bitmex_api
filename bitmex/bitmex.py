@@ -225,97 +225,6 @@ class Client:
 
         return self._curl_bitmex(path=endpoint, postdict=postdict, verb="GET")
 
-    def _curl_bitmex(self, path, query=None, postdict=None, timeout=7, verb=None, rethrow_errors=False,
-                     max_retries=None):
-        """Send a request to BitMEX Servers."""
-        # Handle URL
-        url = self.base_url + path
-
-        # Default to POST if data is attached, GET otherwise
-        if not verb:
-            verb = 'POST' if postdict else 'GET'
-
-        # By default don't retry POST or PUT. Retrying GET/DELETE is okay because they are idempotent.
-        # In the future we could allow retrying PUT, so long as 'leavesQty' is not used (not idempotent),
-        # or you could change the clOrdID (set {"clOrdID": "new", "origClOrdID": "old"}) so that an amend
-        # can't erroneously be applied twice.
-        if max_retries is None:
-            max_retries = 0 if verb in ['POST', 'PUT'] else 3
-
-        # Auth: API Key/Secret
-
-        def exit_or_throw(e):
-            if rethrow_errors:
-                raise e
-            else:
-                exit(1)
-
-        def retry():
-            self.retries += 1
-            if self.retries > max_retries:
-                raise Exception("Max retries on %s (%s) hit, raising." % (path, json.dumps(postdict or '')))
-            return self._curl_bitmex(path, query, postdict, timeout, verb, rethrow_errors, max_retries)
-
-        # Make the request
-        response = None
-        try:
-            self.logger.info("sending req to %s: %s" % (url, json.dumps(postdict or query or '')))
-            req = requests.Request(verb, url, json=postdict, params=query)
-            prepped = self.session.prepare_request(req)
-            response = self.session.send(prepped, timeout=timeout)
-            # Make non-200s throw
-            response.raise_for_status()
-
-        except requests.exceptions.HTTPError as e:
-            if response is None:
-                raise e
-
-
-            # 429, ratelimit; cancel orders & wait until X-Ratelimit-Reset
-            if response.status_code == 429:
-                self.logger.error("Ratelimited on current request. Sleeping, then trying again. Try fewer " +
-                                  "order pairs or contact support@bitmex.com to raise your limits. " +
-                                  "Request: %s \n %s" % (url, json.dumps(postdict)))
-
-                # Figure out how long we need to wait.
-                ratelimit_reset = response.headers['X-Ratelimit-Reset']
-                to_sleep = int(ratelimit_reset) - int(time.time())
-                reset_str = datetime.datetime.fromtimestamp(int(ratelimit_reset)).strftime('%X')
-
-                self.logger.error("Your ratelimit will reset at %s. Sleeping for %d seconds." % (reset_str, to_sleep))
-                time.sleep(to_sleep)
-
-                # Retry the request.
-                return retry()
-
-            # 503 - BitMEX temporary downtime, likely due to a deploy. Try again
-            elif response.status_code == 503:
-                self.logger.warning("Unable to contact the BitMEX API (503), retrying. " +
-                                    "Request: %s \n %s" % (url, json.dumps(postdict)))
-                time.sleep(3)
-                return retry()
-
-            # If we haven't returned or re-raised yet, we get here.
-            self.logger.error("Unhandled Error: %s: %s" % (e, response.text))
-            self.logger.error("Endpoint was: %s %s: %s" % (verb, path, json.dumps(postdict)))
-            exit_or_throw(e)
-
-        except requests.exceptions.Timeout as e:
-            # Timeout, re-run this request
-            self.logger.warning("Timed out on request: %s (%s), retrying..." % (path, json.dumps(postdict or '')))
-            return retry()
-
-        except requests.exceptions.ConnectionError as e:
-            self.logger.warning("Unable to contact the BitMEX API (%s). Please check the URL. Retrying. " +
-                                "Request: %s %s \n %s" % (e, url, json.dumps(postdict)))
-            time.sleep(1)
-            return retry()
-
-        # Reset retry counter on success
-        self.retries = 0
-
-        return response.json()
-
 
 # https://www.bitmex.com/api/explorer/
 class TradeClient(Client):
@@ -646,6 +555,97 @@ class TradeClient(Client):
         except requests.exceptions.ConnectionError as e:
             self.client.logger.warning("Unable to contact the BitMEX API (%s). Please check the URL. Retrying. " +
                                 "Request: %s %s \n %s" % (e, url, json.dumps(postdict)))
+            time.sleep(1)
+            return retry()
+
+        # Reset retry counter on success
+        self.retries = 0
+
+        return response.json()
+
+    def _curl_bitmex(self, path, query=None, postdict=None, timeout=7, verb=None, rethrow_errors=False,
+                     max_retries=None):
+        """Send a request to BitMEX Servers."""
+        # Handle URL
+        url = self.client.base_url + path
+
+        # Default to POST if data is attached, GET otherwise
+        if not verb:
+            verb = 'POST' if postdict else 'GET'
+
+        # By default don't retry POST or PUT. Retrying GET/DELETE is okay because they are idempotent.
+        # In the future we could allow retrying PUT, so long as 'leavesQty' is not used (not idempotent),
+        # or you could change the clOrdID (set {"clOrdID": "new", "origClOrdID": "old"}) so that an amend
+        # can't erroneously be applied twice.
+        if max_retries is None:
+            max_retries = 0 if verb in ['POST', 'PUT'] else 3
+
+        # Auth: API Key/Secret
+
+        def exit_or_throw(e):
+            if rethrow_errors:
+                raise e
+            else:
+                exit(1)
+
+        def retry():
+            self.retries += 1
+            if self.retries > max_retries:
+                raise Exception("Max retries on %s (%s) hit, raising." % (path, json.dumps(postdict or '')))
+            return self._curl_bitmex(path, query, postdict, timeout, verb, rethrow_errors, max_retries)
+
+        # Make the request
+        response = None
+        try:
+            self.client.logger.info("sending req to %s: %s" % (url, json.dumps(postdict or query or '')))
+            req = requests.Request(verb, url, json=postdict, params=query)
+            prepped = self.client.session.prepare_request(req)
+            response = self.client.session.send(prepped, timeout=timeout)
+            # Make non-200s throw
+            response.raise_for_status()
+
+        except requests.exceptions.HTTPError as e:
+            if response is None:
+                raise e
+
+
+            # 429, ratelimit; cancel orders & wait until X-Ratelimit-Reset
+            if response.status_code == 429:
+                self.client.logger.error("Ratelimited on current request. Sleeping, then trying again. Try fewer " +
+                                         "order pairs or contact support@bitmex.com to raise your limits. " +
+                                         "Request: %s \n %s" % (url, json.dumps(postdict)))
+
+                # Figure out how long we need to wait.
+                ratelimit_reset = response.headers['X-Ratelimit-Reset']
+                to_sleep = int(ratelimit_reset) - int(time.time())
+                reset_str = datetime.datetime.fromtimestamp(int(ratelimit_reset)).strftime('%X')
+
+                self.client.logger.error("Your ratelimit will reset at %s. Sleeping for %d seconds." % (reset_str, to_sleep))
+                time.sleep(to_sleep)
+
+                # Retry the request.
+                return retry()
+
+            # 503 - BitMEX temporary downtime, likely due to a deploy. Try again
+            elif response.status_code == 503:
+                self.client.logger.warning("Unable to contact the BitMEX API (503), retrying. " +
+                                           "Request: %s \n %s" % (url, json.dumps(postdict)))
+                time.sleep(3)
+                return retry()
+
+            # If we haven't returned or re-raised yet, we get here.
+            self.client.logger.error("Unhandled Error: %s: %s" % (e, response.text))
+            self.client.logger.error("Endpoint was: %s %s: %s" % (verb, path, json.dumps(postdict)))
+            exit_or_throw(e)
+
+        except requests.exceptions.Timeout as e:
+            # Timeout, re-run this request
+            self.client.logger.warning("Timed out on request: %s (%s), retrying..." % (path, json.dumps(postdict or '')))
+            return retry()
+
+        except requests.exceptions.ConnectionError as e:
+            self.client.logger.warning("Unable to contact the BitMEX API (%s). Please check the URL. Retrying. " +
+                                       "Request: %s %s \n %s" % (e, url, json.dumps(postdict)))
             time.sleep(1)
             return retry()
 
