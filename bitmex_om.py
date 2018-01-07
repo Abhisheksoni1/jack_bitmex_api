@@ -2,8 +2,6 @@ import sys
 
 import datetime
 
-from future.types.newstr import unicode
-
 from bitmex import bitmex
 from time import sleep
 
@@ -13,11 +11,13 @@ Error_code:
 1: 'Nonce is too small.'
 999: Others
 '''
-SYMBOL = 'XBTUSD'
-BASE_URL = 'https://www.bitmex.com/api/v1/'
-API_KEY = "vjKtqv4OPzcFSFO02dx65CEt"
-API_SECRET = "R10sX2fGE-Wk84797MIcRYVg0v7yX6ZvK4yT-KwRA1C8e_XM"
 API_REST_INTERVAL = 1
+
+
+class MyBMEX():
+    def __init__(self):
+        self.apiKey = "vjKtqv4OPzcFSFO02dx65CEt"
+        self.apiSecret = "R10sX2fGE-Wk84797MIcRYVg0v7yX6ZvK4yT-KwRA1C8e_XM"
 
 
 def nowStr(isDate=False):
@@ -55,13 +55,8 @@ class Order(object):
 class ExchangeInterface:
     def __init__(self, dry_run=False):
         self.exchCode = 'Bitmex'
-        self.dry_run = dry_run
-        if len(sys.argv) > 1:
-            self.symbol = sys.argv[1]
-        else:
-            self.symbol = SYMBOL
-        self.bitmex = bitmex.BitMEX(base_url=BASE_URL, symbol=self.symbol,
-                                    apiKey=API_KEY, apiSecret=API_SECRET)
+        self.btmx_config = MyBMEX()
+        self.bitmex = bitmex.TradeClient(self.btmx_config.apiKey, self.btmx_config.apiSecret)
         self.cxlNb = 0
         self.retryNum = 5
 
@@ -236,8 +231,6 @@ class ExchangeInterface:
     #
 
     def cancel_all_orders(self):
-        if self.dry_run:
-            return
         # In certain cases, a WS update might not make it through before we call this.
         # For that reason, we grab via HTTP to ensure we grab them all.
         orders = self.bitmex.active_orders()
