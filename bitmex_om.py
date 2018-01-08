@@ -56,7 +56,7 @@ class ExchangeInterface:
     def __init__(self, dry_run=False):
         self.exchCode = 'Bitmex'
         self.btmx_config = MyBMEX()
-        self.bitmex = bitmex.TradeClient(self.btmx_config, self.btmx_config)
+        self.bitmex = bitmex.TradeClient(self.btmx_config)
         self.cxlNb = 0
         self.retryNum = 5
 
