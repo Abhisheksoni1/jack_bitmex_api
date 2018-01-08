@@ -230,11 +230,11 @@ class Client:
 class TradeClient(Client):
     """BitMEX API Connector."""
 
-    def __init__(self, apiKey=None, apiSecret=None, ):
+    def __init__(self, acc ):
         """Init connector."""
 
-        self.apiKey = apiKey
-        self.apiSecret = apiSecret
+        self.apiKey = acc.apiKey
+        self.apiSecret = acc.apiSecret
         self.client = Client()
 
         # Create websocket for streaming data
