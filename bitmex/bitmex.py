@@ -25,25 +25,6 @@ BASE_URL = 'https://www.bitmex.com/api/v1/'
 SYMBOL = 'XBTUSD'
 
 
-class APIKeyAuth(AuthBase):
-    """Attaches API Key Authentication to the given Request object."""
-
-    def __init__(self, apiKey, apiSecret):
-        """Init with Key & Secret."""
-        self.apiKey = apiKey
-        self.apiSecret = apiSecret
-
-    def __call__(self, r):
-        """Called when forming a request - generates api key headers."""
-        # modify and return the request
-        nonce = generate_nonce()
-        r.headers['api-nonce'] = str(nonce)
-        r.headers['api-key'] = self.apiKey
-        r.headers['api-signature'] = generate_signature(self.apiSecret, r.method, r.url, nonce, r.body or '')
-
-        return r
-
-
 def generate_nonce():
     return int(round(time.time() * 10000))
 
