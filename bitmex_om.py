@@ -253,4 +253,4 @@ class ExchangeInterface:
 o = Order('bitmex', 'XBT', 'USD', 'Limit', 'buy', 100, 15200)
 
 ex = ExchangeInterface()
-print(ex.getBalances())
+print(ex.bitmex.symbols())
