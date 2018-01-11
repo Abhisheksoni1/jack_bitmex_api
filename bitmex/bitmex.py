@@ -7,7 +7,7 @@ import hmac
 try:
     from urllib.parse import urlparse
 except ImportError:
-    from urlparse4 import urlparse
+    from urlparse2 import urlparse
 
 import requests
 import time
@@ -57,7 +57,7 @@ def generate_signature(secret, verb, url, nonce, data):
     # print "Computing HMAC: %s" % verb + path + str(nonce) + data
     message = verb + path + str(nonce) + data
 
-    signature = hmac.new(bytes(secret, 'utf8'), bytes(message, 'utf8'), digestmod=hashlib.sha256).hexdigest()
+    signature = hmac.new(bytearray(secret, 'utf8'), bytearray(message, 'utf8'), digestmod=hashlib.sha256).hexdigest()
     return signature
 
 
@@ -211,7 +211,7 @@ class Client:
 class TradeClient(Client):
     """BitMEX API Connector."""
 
-    def __init__(self, acc ):
+    def __init__(self, acc):
         """Init connector."""
 
         self.apiKey = acc.apiKey
