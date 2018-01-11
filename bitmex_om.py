@@ -254,4 +254,4 @@ o = Order('bitmex', 'XBT', 'USD', 'Limit', 'buy', 100, 15200)
 
 ex = ExchangeInterface()
 # print(ex.active_orders())
-print(ex.bitmex.history())
+print(ex.bitmex.ticker('XBTUSD'))

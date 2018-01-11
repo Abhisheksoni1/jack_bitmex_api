@@ -115,10 +115,8 @@ class Client:
         symbols = list(map(lambda i: i['symbol'], data))
         return symbols
 
-    def ticker(self, symbol=None):
+    def ticker(self, symbol):
         """Get ticker data."""
-        if symbol is None:
-            symbol = self.symbol
         endpoint = 'instrument'
         postdict = {'symbol': symbol}
         instrument = self._curl_bitmex(path=endpoint, postdict=postdict, verb="GET")[0]
