@@ -371,7 +371,7 @@ class TradeClient(Client):
         orders = self._curl_bitmex_private(
             path=path,
             query={
-                'filter': json.dumps({"open": True, 'symbol': self.symbol}),
+                'filter': json.dumps({"open": True, 'symbol': self.client.symbol}),
                 'count': 500
             },
             verb="GET",
