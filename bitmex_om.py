@@ -16,8 +16,8 @@ API_REST_INTERVAL = 1
 
 class MyBMEX():
     def __init__(self):
-        self.apiKey = "vjKtqv4OPzcFSFO02dx65CEt"
-        self.apiSecret = "R10sX2fGE-Wk84797MIcRYVg0v7yX6ZvK4yT-KwRA1C8e_XM"
+        self.apiKey = ""
+        self.apiSecret = ""
 
 
 def nowStr(isDate=False):
