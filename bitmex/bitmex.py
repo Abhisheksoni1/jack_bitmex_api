@@ -13,7 +13,6 @@ import requests
 import time
 import datetime
 import json
-import logging
 
 from requests.auth import AuthBase
 
@@ -87,7 +86,7 @@ class APIKeyAuthWithExpires(AuthBase):
 
 class Client:
     def __init__(self):
-        self.logger = logging.getLogger('root')
+        # self.logger = logging.getLogger('root')
         self.base_url = BASE_URL
         self.symbol = SYMBOL
         self.retries = 0  # initialize counter
@@ -376,7 +375,8 @@ class TradeClient(Client):
             private=True
         )
         # Only return orders that start with our clOrdID prefix.
-        return [o for o in orders]
+        if isinstance(orders,list):
+            return [o for o in orders]
 
     @authentication_required
     def cancel(self, orderID):
@@ -432,7 +432,6 @@ class TradeClient(Client):
         # Make the request
         response = None
         try:
-            self.client.logger.info("sending req to %s: %s" % (url, json.dumps(postdict or query or '')))
             if private:
                 auth = APIKeyAuthWithExpires(self.apiKey, self.apiSecret)
                 req = requests.Request(verb, url, json=postdict, auth=auth, params=query)
@@ -449,38 +448,25 @@ class TradeClient(Client):
 
             # 401 - Auth error. This is fatal.
             if response.status_code == 401:
-                self.client.logger.error("API Key or Secret incorrect, please check and restart.")
-                self.client.logger.error("Error: " + response.text)
-                if postdict:
-                    self.client.logger.error(postdict)
-                # Always exit, even if rethrow_errors, because this is fatal
-                exit(1)
+                return
 
             # 404, can be thrown if order canceled or does not exist.
             elif response.status_code == 404:
                 if verb == 'DELETE':
-                    self.client.logger.error("Order not found: %s" % postdict['orderID'])
+
                     return
-                self.client.logger.error("Unable to contact the BitMEX API (404). " +
-                                  "Request: %s \n %s" % (url, json.dumps(postdict)))
                 exit_or_throw(e)
 
             # 429, ratelimit; cancel orders & wait until X-Ratelimit-Reset
             elif response.status_code == 429:
-                self.client.logger.error("Ratelimited on current request. Sleeping, then trying again. Try fewer " +
-                                  "order pairs or contact support@bitmex.com to raise your limits. " +
-                                  "Request: %s \n %s" % (url, json.dumps(postdict)))
-
                 # Figure out how long we need to wait.
                 ratelimit_reset = response.headers['X-Ratelimit-Reset']
                 to_sleep = int(ratelimit_reset) - int(time.time())
                 reset_str = datetime.datetime.fromtimestamp(int(ratelimit_reset)).strftime('%X')
 
                 # We're ratelimited, and we may be waiting for a long time. Cancel orders.
-                self.client.logger.warning("Canceling all known orders in the meantime.")
                 self.cancel([o['orderID'] for o in self.active_orders()])
 
-                self.client.logger.error("Your ratelimit will reset at %s. Sleeping for %d seconds." % (reset_str, to_sleep))
                 time.sleep(to_sleep)
 
                 # Retry the request.
@@ -488,8 +474,6 @@ class TradeClient(Client):
 
             # 503 - BitMEX temporary downtime, likely due to a deploy. Try again
             elif response.status_code == 503:
-                self.client.logger.warning("Unable to contact the BitMEX API (503), retrying. " +
-                                    "Request: %s \n %s" % (url, json.dumps(postdict)))
                 time.sleep(3)
                 return retry()
 
@@ -518,22 +502,16 @@ class TradeClient(Client):
                     return orderResults
 
                 elif 'insufficient available balance' in message:
-                    self.logger.error('Account out of funds. The message: %s' % error['message'])
                     exit_or_throw(Exception('Insufficient Funds'))
 
             # If we haven't returned or re-raised yet, we get here.
-            self.client.logger.error("Unhandled Error: %s: %s" % (e, response.text))
-            self.client.logger.error("Endpoint was: %s %s: %s" % (verb, path, json.dumps(postdict)))
             exit_or_throw(e)
 
         except requests.exceptions.Timeout as e:
             # Timeout, re-run this request
-            self.client.logger.warning("Timed out on request: %s (%s), retrying..." % (path, json.dumps(postdict or '')))
             return retry()
 
         except requests.exceptions.ConnectionError as e:
-            self.client.logger.warning("Unable to contact the BitMEX API (%s). Please check the URL. Retrying. " +
-                                "Request: %s %s \n %s" % (e, url, json.dumps(postdict)))
             time.sleep(1)
             return retry()
 
@@ -576,7 +554,6 @@ class TradeClient(Client):
         # Make the request
         response = None
         try:
-            self.client.logger.info("sending req to %s: %s" % (url, json.dumps(postdict or query or '')))
             req = requests.Request(verb, url, json=postdict, params=query)
             prepped = self.client.session.prepare_request(req)
             response = self.client.session.send(prepped, timeout=timeout)
@@ -590,16 +567,10 @@ class TradeClient(Client):
 
             # 429, ratelimit; cancel orders & wait until X-Ratelimit-Reset
             if response.status_code == 429:
-                self.client.logger.error("Ratelimited on current request. Sleeping, then trying again. Try fewer " +
-                                         "order pairs or contact support@bitmex.com to raise your limits. " +
-                                         "Request: %s \n %s" % (url, json.dumps(postdict)))
-
                 # Figure out how long we need to wait.
                 ratelimit_reset = response.headers['X-Ratelimit-Reset']
                 to_sleep = int(ratelimit_reset) - int(time.time())
                 reset_str = datetime.datetime.fromtimestamp(int(ratelimit_reset)).strftime('%X')
-
-                self.client.logger.error("Your ratelimit will reset at %s. Sleeping for %d seconds." % (reset_str, to_sleep))
                 time.sleep(to_sleep)
 
                 # Retry the request.
@@ -607,24 +578,16 @@ class TradeClient(Client):
 
             # 503 - BitMEX temporary downtime, likely due to a deploy. Try again
             elif response.status_code == 503:
-                self.client.logger.warning("Unable to contact the BitMEX API (503), retrying. " +
-                                           "Request: %s \n %s" % (url, json.dumps(postdict)))
                 time.sleep(3)
                 return retry()
 
             # If we haven't returned or re-raised yet, we get here.
-            self.client.logger.error("Unhandled Error: %s: %s" % (e, response.text))
-            self.client.logger.error("Endpoint was: %s %s: %s" % (verb, path, json.dumps(postdict)))
             exit_or_throw(e)
 
         except requests.exceptions.Timeout as e:
-            # Timeout, re-run this request
-            self.client.logger.warning("Timed out on request: %s (%s), retrying..." % (path, json.dumps(postdict or '')))
             return retry()
 
         except requests.exceptions.ConnectionError as e:
-            self.client.logger.warning("Unable to contact the BitMEX API (%s). Please check the URL. Retrying. " +
-                                       "Request: %s %s \n %s" % (e, url, json.dumps(postdict)))
             time.sleep(1)
             return retry()
 

@@ -53,7 +53,7 @@ class Order(object):
 
 
 class ExchangeInterface:
-    def __init__(self, dry_run=False):
+    def __init__(self):
         self.exchCode = 'Bitmex'
         self.btmx_config = MyBMEX()
         self.bitmex = bitmex.TradeClient(self.btmx_config)
@@ -87,7 +87,7 @@ class ExchangeInterface:
         return self.readOrderStatus(ackMsg)
 
     def isCxlAllSuccess(self):
-        ackMsg = self.active_orders()
+        ackMsg = self._active_orders()
         if isinstance(ackMsg, list):
             if not len(ackMsg):
                 return True
@@ -98,20 +98,19 @@ class ExchangeInterface:
 
     def cancelAllOrders(self):
         self.cancel_all_orders()
-        ackMsg = self.active_orders()
+        ackMsg = self._active_orders()
         if len(ackMsg) == 0:
             ackMsg = True
             return ackMsg
 
     def checkOrderStatus(self, o):
-        a_orders = self.active_orders()
+        a_orders = self._active_orders()
         if not len(a_orders):
             return []
         for i in range(a_orders):
             if a_orders[i]['orderID'] == o.odid:
                 return self.readOrderStatus(a_orders[i])
         # return self.readOrderStatus(ackMsg)
-
 
     def readOrderStatus(self, ackMsg):
         orderStatus = None
@@ -138,7 +137,7 @@ class ExchangeInterface:
             return self.handleUnknownMsg(ackMsg)
 
     def getActiveOrders(self):
-        ackMsg = self.active_orders()
+        ackMsg = self._active_orders()
         if type(ackMsg) == list:
             if not len(ackMsg):
                 return ackMsg
@@ -151,7 +150,7 @@ class ExchangeInterface:
             return intAckMsg
 
     def getInitActiveOrders(self):
-        ackMsg = self.active_orders()
+        ackMsg = self._active_orders()
         if type(ackMsg) == list:
             if not len(ackMsg):
                 return ackMsg
@@ -183,8 +182,7 @@ class ExchangeInterface:
         self.balances, self.available = {}, {}
         n = 0
         n += 1
-        ackMsg = self.get_balances()
-        print(ackMsg)
+        ackMsg = self._get_balances()
         if isinstance(ackMsg, dict):
             self.balances[str(ackMsg['currency'].upper())] = float(ackMsg['marginBalance']/(10**8))
             self.available[str(ackMsg['currency'].upper())] = float(ackMsg['availableMargin']/(10**8))
@@ -226,7 +224,7 @@ class ExchangeInterface:
             return e
             # sleep(settings.API_ERROR_INTERVAL)
 
-    def active_orders(self):
+    def _active_orders(self):
         return self.bitmex.active_orders()
     #
 
@@ -240,7 +238,7 @@ class ExchangeInterface:
 
         sleep(API_REST_INTERVAL)
 
-    def get_balances(self):
+    def _get_balances(self):
         return self.bitmex.balances()
 
     def place_order(self,side, symbol, quantity, ordertpye, price=None, stopPx=None):
@@ -253,9 +251,10 @@ class ExchangeInterface:
 o = Order('bitmex', 'XBT', 'USD', 'Limit', 'buy', 100, 15200)
 
 ex = ExchangeInterface()
-# print(ex.active_orders())
-# print(ex.bitmex.ticker('XBTUSD'))
-# print(ex.bitmex.order_book('XBTUSD'))
-# print(ex.bitmex.instrument("XBTUSD"))
+print(ex.getActiveOrders())
+print(ex.getBalances())
+print(ex.bitmex.ticker('XBTUSD'))
+print(ex.bitmex.order_book('XBTUSD'))
+print(ex.bitmex.instrument("XBTUSD"))
 print(ex.bitmex.today('XBTUSD'))
 print(ex.bitmex.recent_trades('XBTUSD'))
